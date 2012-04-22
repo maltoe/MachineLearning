@@ -63,6 +63,22 @@ void readFromFile(const char* fn, MT::Array<double>& x, MT::Array<double>& y)
     }
 }
 
+arr linearFeatures(arr& x)
+{
+    arr c(x); // copy x to c!
+    c.insRows(0, 1);
+    for(unsigned int i = 0; i < c.getDim()(1); i++)
+        c(0,i) = 1.0;
+    return c;
+}
+
+/*
+arr solveForBeta(arr x, arr& (*featureFunc)(arr& x))
+{
+    arr b;
+    return b;
+}*/
+
 int main(int, char**)
 {
     /*
@@ -86,6 +102,13 @@ int main(int, char**)
     readFromFile("dataLinReg1D.txt", x, y);
     std::cout << x << std::endl;
     std::cout << y << std::endl;
+    
+    std::cout << x.getDim() << std::endl;
+    
+    MT::Array<double> c = arr(2, 3);
+    rndInteger(c, -5, 5, false);
+    std::cout << c << std::endl;
+    std::cout << linearFeatures(c) << std::endl;
     
     return 0;
 }
