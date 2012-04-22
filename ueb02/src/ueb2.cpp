@@ -1,36 +1,21 @@
 #include <MT/array.h>
 
-#include <fstream>
-#include <sstream>
 #include <iostream>
 #include <vector>
+#include <fstream>
+#include <sstream>
 
-inline double str2dbl(std::string& str)
+inline std::vector<double> parseLine(std::string& line)
 {
-    std::istringstream iss(str);
-    double v;
-    iss >> v;
-    return v;
-}
-
-inline std::vector<double> parseLine(std::string const& line)
-{
-    std::vector<double> v;
-    std::string current_token;
-    for(unsigned int i = 0; i < line.length(); i++) {
-        if(line[i] == ' ') {
-            if(current_token.length() > 0) {
-                v.push_back(str2dbl(current_token));
-            }
-            current_token.erase();
-        } else {
-            current_token += line[i];
-        }
+    std::vector<double> v;  
+    line.erase(0, line.find_first_not_of(" \t"));
+    line.erase(line.find_last_not_of(" \t") + 1);
+    std::istringstream iss(line);
+    double val;
+    while(!iss.eof()) {
+        iss >> val;
+        v.push_back(val);
     }
-    
-    if(current_token.length() > 0)
-        v.push_back(str2dbl(current_token));
-    
     return v;
 }
 
@@ -63,52 +48,73 @@ void readFromFile(const char* fn, MT::Array<double>& x, MT::Array<double>& y)
     }
 }
 
-arr linearFeatures(arr& x)
+arr prependOne(arr& x)
 {
     arr c(x); // copy x to c!
-    c.insRows(0, 1);
-    for(unsigned int i = 0; i < c.getDim()(1); i++)
-        c(0,i) = 1.0;
-    return c;
+    c.insColumns(0, 1);
+    for(unsigned int i = 0; i < c.getDim()(0); i++)
+        c(i,0) = 1.0;
+    return c;    
 }
 
-/*
-arr solveForBeta(arr x, arr& (*featureFunc)(arr& x))
+arr linearFeatures(arr& x)
 {
-    arr b;
-    return b;
-}*/
+    return prependOne(x);
+}
+
+arr quadraticFeatures(arr& x)
+{
+    arr c(x); // copy x to c!
+    int col = x.getDim()(1);
+    for(unsigned int i = 0; i < x.getDim()(1); i++) {
+        for(unsigned int j = i; j < x.getDim()(1); j++) {
+            c.insColumns(col, 1);
+            for(unsigned int row = 0; row < x.getDim()(0); row++) {
+                c(row, col) = x(row, i) * x(row, j);
+            }
+            col++;
+        }
+    }
+
+    return prependOne(c);
+}
+
+arr solveForBeta(arr& x, arr& y, arr(*featureFunc)(arr& x))
+{
+    arr phix = featureFunc(x);
+    arr invXtX;
+    inverse(invXtX, ~phix * phix);
+    arr beta = invXtX * ~phix * y;
+    
+    return beta;
+}
+
+arr matrixZ()
+{
+    const int n = 10;
+    arr z(n * n, 2);
+    for(int i = 0; i < n; i++) {
+        for(int j = 0; j < n; j++) {
+            z(i * n + j, 0) = i - n/2;
+            z(i * n + j, 1) = j - n/2;
+        }
+    }
+    return z;
+}
 
 int main(int, char**)
-{
-    /*
-    // Watch out: Different short-hands.
-    // ARR creates double vector with given elements
-    // arr creates matrix with given n,m dimensions
-    
-    // scalar product
-    MT::Array<double> a = ARR(1.0, 2.0);     
-    MT::Array<double> b = ARR(3.0, 4.0);
-
-    // random 2x3 matrix
-    MT::Array<double> c = arr(2, 3);
-    rndInteger(c, -5, 5, false);
-    std::cout << c << std::endl;
-    */
-    
+{   
     // read dataLinReg1D.txt
     MT::Array<double> x;
     MT::Array<double> y;
-    readFromFile("dataLinReg1D.txt", x, y);
-    std::cout << x << std::endl;
-    std::cout << y << std::endl;
-    
-    std::cout << x.getDim() << std::endl;
-    
-    MT::Array<double> c = arr(2, 3);
-    rndInteger(c, -5, 5, false);
-    std::cout << c << std::endl;
-    std::cout << linearFeatures(c) << std::endl;
+    readFromFile("dataLinReg2D.txt", x, y);
+    MT::Array<double> beta;
+    beta = solveForBeta(x, y, linearFeatures);
+    arr Z = matrixZ();
+    arr phiZ = prependOne(Z);
+    arr ret = phiZ * beta;
+//     gnuplot(ret);
+    std::cout << ret << std::endl;
     
     return 0;
 }
